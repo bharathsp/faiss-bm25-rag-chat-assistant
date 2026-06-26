@@ -42,6 +42,20 @@ A lightweight, local FastAPI application for document Q&A powered by **hybrid RA
 
 ---
 
+## Landing Page
+
+<img width="1622" height="972" alt="image" src="https://github.com/user-attachments/assets/84587f10-54f1-46bf-a267-7e06e710e585" />
+
+## Dropping Files + Suggestions
+
+<img width="430" height="518" alt="image" src="https://github.com/user-attachments/assets/a089f3c4-d257-4571-8268-9b0e401a9715" />
+
+## Voice to text + Read last answer aloud option
+
+<img width="1122" height="235" alt="image" src="https://github.com/user-attachments/assets/222e0771-43cc-4aad-8945-908943eb66ac" />
+
+---
+
 ## Architecture Overview
 
 ```mermaid
