@@ -64,6 +64,30 @@ function renderMarkdown(text) {
     .replace(/\n/g, "<br>");
 }
 
+function markdownToPlainText(text) {
+  if (!text) return "";
+
+  if (window.marked) {
+    const div = document.createElement("div");
+    div.innerHTML = marked.parse(text);
+    return (div.innerText || div.textContent || "").trim();
+  }
+
+  return text
+    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*\n?/g, "").replace(/```/g, ""))
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/_(.+?)_/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/~~(.+?)~~/g, "$1")
+    .trim();
+}
+
 function scrollChatToBottom() {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -246,8 +270,8 @@ async function uploadFiles(files) {
 
   try {
     const res = await fetch("/api/upload", { method: "POST", body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Upload failed");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || res.statusText || "Upload failed");
 
     updateStatus({
       ready: true,
@@ -402,7 +426,7 @@ speakBtn.addEventListener("click", () => {
     return;
   }
   window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(state.lastAnswer);
+  const utterance = new SpeechSynthesisUtterance(markdownToPlainText(state.lastAnswer));
   utterance.rate = 1;
   window.speechSynthesis.speak(utterance);
 });

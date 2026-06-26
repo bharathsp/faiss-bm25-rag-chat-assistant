@@ -41,6 +41,23 @@ class VectorStore:
                 data = pickle.load(f)
             self.records = data["records"]
             self.embeddings = data.get("embeddings")
+            self._repair_index_if_needed()
+
+    def _repair_index_if_needed(self) -> None:
+        if self.index is None or not self.records:
+            return
+        if self.index.ntotal == len(self.records):
+            return
+        if (
+            self.embeddings is not None
+            and len(self.embeddings) == len(self.records)
+        ):
+            dim = self.embeddings.shape[1]
+            self.index = faiss.IndexFlatIP(dim)
+            self.index.add(self.embeddings)
+            self.save()
+            return
+        self.clear()
 
     def save(self) -> None:
         if self.index is None:

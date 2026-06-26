@@ -11,9 +11,23 @@ def load_text_from_file(file_path: Path) -> str:
     if suffix == ".txt":
         return file_path.read_text(encoding="utf-8", errors="ignore")
     if suffix == ".pdf":
-        reader = PdfReader(str(file_path))
-        pages = [page.extract_text() or "" for page in reader.pages]
-        return "\n".join(pages)
+        try:
+            reader = PdfReader(str(file_path))
+            if reader.is_encrypted:
+                raise ValueError(
+                    "PDF is password-protected. Upload an unencrypted PDF or remove the password first."
+                )
+            pages = [page.extract_text() or "" for page in reader.pages]
+            text = "\n".join(pages).strip()
+            if not text:
+                raise ValueError(
+                    "No extractable text found in this PDF. It may be scanned images only; try a text-based PDF or OCR."
+                )
+            return text
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise ValueError(f"Could not read PDF: {exc}") from exc
     if suffix == ".csv":
         return _csv_to_text(file_path)
     raise ValueError(f"Unsupported file type: {suffix}")

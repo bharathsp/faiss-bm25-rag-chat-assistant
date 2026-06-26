@@ -1,13 +1,15 @@
 import json
+import logging
 from pathlib import Path
 
 import aiofiles
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from openai import OpenAIError
 from pydantic import BaseModel
 
-from app.config import UPLOAD_DIR
+from app.config import OPENAI_API_KEY, UPLOAD_DIR
 from app.ingest.loader import chunk_text, load_text_from_file
 from app.config import CHUNK_OVERLAP, CHUNK_SIZE
 from app.rag.chat import chat_engine
@@ -18,9 +20,21 @@ from app.storage.faiss_store import vector_store
 ALLOWED_EXTENSIONS = {".txt", ".pdf", ".csv"}
 
 app = FastAPI(title="Hybrid RAG Chatbot", version="1.0.0")
+logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+        )
+    logger.exception("Unhandled error on %s", request.url.path)
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
 class ChatRequest(BaseModel):
@@ -50,43 +64,70 @@ async def status():
 
 @app.post("/api/upload")
 async def upload_files(files: list[UploadFile] = File(...)):
+    if not OPENAI_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="OPENAI_API_KEY is not set. Add it to your .env file and restart the server.",
+        )
+
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
 
     processed = []
     total_chunks = 0
 
-    for upload in files:
-        suffix = Path(upload.filename or "").suffix.lower()
-        if suffix not in ALLOWED_EXTENSIONS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported file type: {suffix}. Use txt, pdf, or csv.",
-            )
+    try:
+        for upload in files:
+            suffix = Path(upload.filename or "").suffix.lower()
+            if suffix not in ALLOWED_EXTENSIONS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported file type: {suffix}. Use txt, pdf, or csv.",
+                )
 
-        safe_name = Path(upload.filename or "upload").name
-        dest = UPLOAD_DIR / safe_name
-        async with aiofiles.open(dest, "wb") as out:
-            content = await upload.read()
-            await out.write(content)
+            safe_name = Path(upload.filename or "upload").name
+            dest = UPLOAD_DIR / safe_name
+            async with aiofiles.open(dest, "wb") as out:
+                content = await upload.read()
+                await out.write(content)
 
-        text = load_text_from_file(dest)
-        chunks = chunk_text(text, CHUNK_SIZE, CHUNK_OVERLAP)
-        chunk_pairs = [(chunk, safe_name) for chunk in chunks]
-        added = vector_store.add_documents(chunk_pairs)
-        total_chunks += added
-        processed.append({"filename": safe_name, "chunks": added})
+            try:
+                text = load_text_from_file(dest)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    hybrid_retriever._ensure_bm25()
-    session = memory_store.get_or_create(None)
-    suggestions = chat_engine.generate_suggestions("initial", session)
+            chunks = chunk_text(text, CHUNK_SIZE, CHUNK_OVERLAP)
+            if not chunks:
+                processed.append({"filename": safe_name, "chunks": 0})
+                continue
 
-    return {
-        "processed": processed,
-        "total_chunks": total_chunks,
-        "documents": vector_store.get_documents(),
-        "suggestions": suggestions,
-    }
+            chunk_pairs = [(chunk, safe_name) for chunk in chunks]
+            added = vector_store.add_documents(chunk_pairs)
+            total_chunks += added
+            processed.append({"filename": safe_name, "chunks": added})
+
+        hybrid_retriever._ensure_bm25()
+        session = memory_store.get_or_create(None)
+        suggestions = chat_engine.generate_suggestions("initial", session)
+
+        return {
+            "processed": processed,
+            "total_chunks": total_chunks,
+            "documents": vector_store.get_documents(),
+            "suggestions": suggestions,
+        }
+    except HTTPException:
+        raise
+    except OpenAIError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"OpenAI API error while indexing documents: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Upload failed: {exc}",
+        ) from exc
 
 
 @app.post("/api/chat")
@@ -207,4 +248,8 @@ async def clear_all():
 
 @app.on_event("startup")
 async def startup():
+    if not OPENAI_API_KEY:
+        logger.warning(
+            "OPENAI_API_KEY is not set. Uploads, chat, and transcription will fail until it is configured."
+        )
     hybrid_retriever._ensure_bm25()
