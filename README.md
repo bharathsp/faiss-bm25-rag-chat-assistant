@@ -524,7 +524,7 @@ flowchart TB
     Chat --> ChatPanel
     Messages --> Markdown[marked.js rendering]
     Input --> Stream[SSE /api/chat/stream]
-    Input --> Whisper[/api/transcribe]
+    Input --> Whisper["/api/transcribe/"]
 ```
 
 **Key UI behaviors:**
