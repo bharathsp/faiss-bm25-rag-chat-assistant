@@ -113,6 +113,8 @@ async def upload_files(files: list[UploadFile] = File(...)):
         return {
             "processed": processed,
             "total_chunks": total_chunks,
+            "chunk_count": len(vector_store.records),
+            "ready": vector_store.is_ready,
             "documents": vector_store.get_documents(),
             "suggestions": suggestions,
         }

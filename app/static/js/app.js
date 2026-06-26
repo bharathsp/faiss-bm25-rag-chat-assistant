@@ -274,8 +274,8 @@ async function uploadFiles(files) {
     if (!res.ok) throw new Error(data.detail || res.statusText || "Upload failed");
 
     updateStatus({
-      ready: true,
-      chunk_count: data.total_chunks,
+      ready: data.ready ?? true,
+      chunk_count: data.chunk_count,
       documents: data.documents,
     });
     renderSuggestions(data.suggestions || []);
