@@ -477,7 +477,7 @@ erDiagram
 
     UPLOAD_FILE {
         string filename
-        path disk_path
+        string disk_path
     }
     CHUNK_RECORD {
         string text
@@ -485,7 +485,7 @@ erDiagram
         int chunk_id
     }
     EMBEDDING_VECTOR {
-        float array normalized
+        float normalized
     }
 ```
 
