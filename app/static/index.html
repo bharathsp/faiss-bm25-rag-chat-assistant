@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hybrid RAG Chatbot</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <div>
+          <h1>Hybrid RAG Chatbot</h1>
+          <p>Upload docs · Ask questions · Voice input</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="themeToggle" class="icon-btn" title="Toggle theme">🌙</button>
+        <button id="clearBtn" class="ghost-btn">Clear All</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel upload-panel">
+        <div class="panel-header">
+          <h2>Documents</h2>
+          <span id="docCount" class="badge">0 chunks</span>
+        </div>
+
+        <div id="dropZone" class="drop-zone">
+          <div class="drop-icon">📄</div>
+          <p class="drop-title">Drag & drop files here</p>
+          <p class="drop-sub">TXT, PDF, CSV — single or multiple</p>
+          <label class="browse-btn">
+            Browse files
+            <input id="fileInput" type="file" accept=".txt,.pdf,.csv" multiple hidden />
+          </label>
+        </div>
+
+        <div id="uploadList" class="upload-list"></div>
+        <div id="uploadProgress" class="upload-progress hidden">
+          <div class="spinner"></div>
+          <span>Embedding documents into FAISS...</span>
+        </div>
+      </aside>
+
+      <section class="panel chat-panel">
+        <div class="panel-header">
+          <h2>Chat</h2>
+          <span id="statusPill" class="status-pill">Waiting for docs</span>
+        </div>
+
+        <div id="chatMessages" class="chat-messages">
+          <div class="message assistant welcome">
+            <div class="avatar">AI</div>
+            <div class="bubble">
+              <p>Hi! Upload your TXT, PDF, or CSV files and I'll answer questions using hybrid RAG — dense vector search plus keyword retrieval for better accuracy.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="suggestions-wrap">
+          <p class="suggestions-label">Suggested questions</p>
+          <div id="suggestions" class="suggestions"></div>
+        </div>
+
+        <form id="chatForm" class="chat-input-row">
+          <button type="button" id="micBtn" class="icon-btn mic-btn" title="Voice input (Whisper)">🎤</button>
+          <input id="chatInput" type="text" placeholder="Ask about your documents..." autocomplete="off" />
+          <button type="button" id="speakBtn" class="icon-btn" title="Read last answer aloud">🔊</button>
+          <button type="submit" class="send-btn">Send</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
